@@ -26,6 +26,8 @@ import LeaderboardPage from './dashboard/pages/LeaderboardPage';
 import CoinsPage from './dashboard/pages/CoinsPage';
 import SettingsPage from './dashboard/pages/SettingsPage';
 import ShopPage from './dashboard/pages/ShopPage';
+import GoalsPage from './dashboard/pages/GoalsPage';
+import GoalDetailsPage from './dashboard/pages/GoalDetailsPage';
 
 function LandingPage() {
     useEffect(() => {
@@ -39,9 +41,9 @@ function LandingPage() {
     }, []);
 
     return (
-        <div className="flex flex-col min-h-screen overflow-hidden bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 font-body">
+        <div className="dark video-theme flex flex-col min-h-screen overflow-hidden text-white transition-colors duration-300 font-body relative">
             <Navbar />
-            <main>
+            <main className="relative z-10">
                 <Hero />
                 <ProblemSection />
                 <SolutionSection />
@@ -51,7 +53,9 @@ function LandingPage() {
                 <ImpactSection />
                 <CtaSection />
             </main>
-            <Footer />
+            <div className="relative z-10">
+                <Footer />
+            </div>
         </div>
     );
 }
@@ -81,6 +85,8 @@ function App() {
                     <Route path="coins" element={<CoinsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="shop" element={<ShopPage />} />
+                    <Route path="goals" element={<GoalsPage />} />
+                    <Route path="goals/:id" element={<GoalDetailsPage />} />
                 </Route>
             </Routes>
         </BrowserRouter>

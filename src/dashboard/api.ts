@@ -24,6 +24,8 @@ export const api = {
         apiFetch(path, { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) }),
     put: (path: string, body?: object) =>
         apiFetch(path, { method: 'PUT', ...(body ? { body: JSON.stringify(body) } : {}) }),
+    delete: (path: string, body?: object) =>
+        apiFetch(path, { method: 'DELETE', ...(body ? { body: JSON.stringify(body) } : {}) }),
         
     // Bank & Autopay endpoints
     bank: {
@@ -40,5 +42,8 @@ export const api = {
         getStatus: () => apiFetch('/api/autopay/status', { method: 'GET' }),
         getWallet: () => apiFetch('/api/autopay/wallet', { method: 'GET' }),
         simulateDay: () => apiFetch('/api/autopay/simulate-day', { method: 'POST' }),
+    },
+    goals: {
+        runAutopay: (goalId: number) => apiFetch(`/api/goals/${goalId}/autopay/run`, { method: 'POST' }),
     }
 };

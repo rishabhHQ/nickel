@@ -1,5 +1,5 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from models import db, User, BankAccount, Transaction, Autopay, SavingsWallet
+from models import db, User, BankAccount, Transaction, Autopay, SavingsWallet, Goal, GoalAutoSaving, GoalTransaction
 from routes.dashboard import level_up
 from datetime import date
 
@@ -130,6 +130,88 @@ def execute_daily_autopay_job(app):
                 db.session.rollback()
                 print(f"Error processing cycle {cycle.id}: {str(e)}")
 
+def process_goal_autopay(auto_saving, today):
+    goal = Goal.query.get(auto_saving.goal_id)
+    if not goal or goal.status != 'ACTIVE':
+        return
+        
+    user = User.query.get(goal.user_id)
+    bank = BankAccount.query.filter_by(user_id=user.id).first()
+    
+    amount = auto_saving.amount
+    
+    if bank and bank.balance >= amount:
+        # Success
+        bank.balance -= amount
+        goal.saved_amount += amount
+        
+        # Check completion
+        if goal.saved_amount >= goal.target_amount:
+            goal.status = 'COMPLETED'
+            goal.current_completion_date = today
+            
+        tx = GoalTransaction(
+            goal_id=goal.id,
+            type='GOAL_AUTOPAY',
+            amount=amount,
+            status='SUCCESS',
+            source='Dummy Bank',
+            destination='Goal Wallet',
+            description=f"AutoPay: Saved {amount} for {goal.name}",
+            remaining_balance=goal.target_amount - goal.saved_amount,
+            current_balance=goal.saved_amount
+        )
+        db.session.add(tx)
+        
+        # Update next_run_date
+        from datetime import timedelta
+        if auto_saving.frequency == 'DAILY':
+            auto_saving.next_run_date = today + timedelta(days=1)
+        elif auto_saving.frequency == 'WEEKLY':
+            auto_saving.next_run_date = today + timedelta(days=7)
+        elif auto_saving.frequency == 'MONTHLY':
+            auto_saving.next_run_date = today + timedelta(days=30)
+        elif auto_saving.frequency == 'CUSTOM' and auto_saving.custom_days:
+            auto_saving.next_run_date = today + timedelta(days=auto_saving.custom_days)
+            
+        db.session.commit()
+        print(f"[Goal Autopay] Success for Goal {goal.id}")
+    else:
+        # Failed
+        goal.status = 'PAUSED'
+        
+        tx = GoalTransaction(
+            goal_id=goal.id,
+            type='GOAL_AUTOPAY',
+            amount=amount,
+            status='FAILED',
+            source='Dummy Bank',
+            destination='Goal Wallet',
+            reason='Insufficient Balance',
+            description=f"AutoPay Failed: Insufficient balance for {goal.name}",
+            remaining_balance=goal.target_amount - goal.saved_amount,
+            current_balance=goal.saved_amount
+        )
+        db.session.add(tx)
+        db.session.commit()
+        print(f"[Goal Autopay] Failed for Goal {goal.id} - Insufficient Balance")
+
+def execute_goal_autopay_job(app):
+    with app.app_context():
+        today = date.today()
+        # Find auto savings that need to run today or are overdue
+        auto_savings = GoalAutoSaving.query.join(Goal).filter(
+            Goal.status == 'ACTIVE',
+            GoalAutoSaving.next_run_date <= today
+        ).all()
+        
+        for auto_saving in auto_savings:
+            try:
+                process_goal_autopay(auto_saving, today)
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error processing goal autopay {auto_saving.id}: {str(e)}")
+
 def start_scheduler(app):
     scheduler = BackgroundScheduler()
     scheduler.add_job(
@@ -139,5 +221,13 @@ def start_scheduler(app):
         hour=0,
         minute=0,
         id='daily_autopay_job'
+    )
+    scheduler.add_job(
+        func=execute_goal_autopay_job,
+        args=[app],
+        trigger='cron',
+        hour=0,
+        minute=0,
+        id='goal_autopay_job'
     )
     scheduler.start()

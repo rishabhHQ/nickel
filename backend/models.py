@@ -170,6 +170,7 @@ class Autopay(db.Model):
     freeze_days_left = db.Column(db.Integer, default=0)
     cycle_start_date = db.Column(db.Date, default=lambda: date.today())
     last_run_date = db.Column(db.Date, nullable=True)
+    manual_pauses = db.Column(db.Integer, default=0)
 
 class SavingsWallet(db.Model):
     __tablename__ = 'savings_wallet'
@@ -177,3 +178,111 @@ class SavingsWallet(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
     balance = db.Column(db.Float, default=0.0)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class Goal(db.Model):
+    __tablename__ = 'goals'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    target_amount = db.Column(db.Float, nullable=False)
+    saved_amount = db.Column(db.Float, default=0.0)
+    target_date = db.Column(db.Date, nullable=False)
+    icon = db.Column(db.String(255), nullable=True) # predefined image or icon name
+    status = db.Column(db.String(20), default='ACTIVE') # ACTIVE, COMPLETED, PAUSED
+    original_completion_date = db.Column(db.Date, nullable=False)
+    current_completion_date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'target_amount': self.target_amount,
+            'saved_amount': self.saved_amount,
+            'target_date': self.target_date.isoformat() if self.target_date else None,
+            'icon': self.icon,
+            'status': self.status,
+            'original_completion_date': self.original_completion_date.isoformat() if self.original_completion_date else None,
+            'current_completion_date': self.current_completion_date.isoformat() if self.current_completion_date else None,
+            'created_at': self.created_at.isoformat()
+        }
+
+class GoalAutoSaving(db.Model):
+    __tablename__ = 'goal_auto_saving'
+    id = db.Column(db.Integer, primary_key=True)
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=False)
+    frequency = db.Column(db.String(20), nullable=False) # DAILY, WEEKLY, MONTHLY, CUSTOM
+    custom_days = db.Column(db.Integer, nullable=True) # if CUSTOM
+    amount = db.Column(db.Float, nullable=False)
+    next_run_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'goal_id': self.goal_id,
+            'frequency': self.frequency,
+            'custom_days': self.custom_days,
+            'amount': self.amount,
+            'next_run_date': self.next_run_date.isoformat() if self.next_run_date else None
+        }
+
+class GoalTransaction(db.Model):
+    __tablename__ = 'goal_transactions'
+    id = db.Column(db.Integer, primary_key=True)
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=False)
+    type = db.Column(db.String(20), nullable=False) # CREDIT, DEBIT, SPLURGE, GOAL_AUTOPAY
+    amount = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    
+    # New fields for Goal Autopay
+    status = db.Column(db.String(20), default='SUCCESS') # SUCCESS, FAILED
+    source = db.Column(db.String(100), default='Dummy Bank')
+    destination = db.Column(db.String(100), default='Goal Wallet')
+    reason = db.Column(db.String(255), nullable=True)
+    remaining_balance = db.Column(db.Float, nullable=True)
+    current_balance = db.Column(db.Float, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'goal_id': self.goal_id,
+            'type': self.type,
+            'amount': self.amount,
+            'description': self.description,
+            'status': self.status,
+            'source': self.source,
+            'destination': self.destination,
+            'reason': self.reason,
+            'remaining_balance': self.remaining_balance,
+            'current_balance': self.current_balance,
+            'created_at': self.created_at.isoformat()
+        }
+
+class GoalDelayHistory(db.Model):
+    __tablename__ = 'goal_delay_history'
+    id = db.Column(db.Integer, primary_key=True)
+    goal_id = db.Column(db.Integer, db.ForeignKey('goals.id'), nullable=False)
+    purchase_name = db.Column(db.String(255), nullable=False)
+    purchase_amount = db.Column(db.Float, nullable=False)
+    delay_days = db.Column(db.Integer, nullable=False)
+    previous_completion_date = db.Column(db.Date, nullable=False)
+    new_completion_date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'goal_id': self.goal_id,
+            'purchase_name': self.purchase_name,
+            'purchase_amount': self.purchase_amount,
+            'delay_days': self.delay_days,
+            'previous_completion_date': self.previous_completion_date.isoformat() if self.previous_completion_date else None,
+            'new_completion_date': self.new_completion_date.isoformat() if self.new_completion_date else None,
+            'created_at': self.created_at.isoformat()
+        }
+

@@ -10,6 +10,7 @@ export default {
             fontFamily: {
                 heading: ['Poppins', 'sans-serif'],
                 body: ['Work Sans', 'sans-serif'],
+                space: ['"Space Grotesk"', 'sans-serif'],
             },
             spacing: { base: '1rem' },
             borderRadius: {

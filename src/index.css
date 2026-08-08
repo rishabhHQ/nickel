@@ -215,4 +215,29 @@ html.dark [class*="bg-white"] {
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
   }
+
+  /* Video Theme Overrides for Landing Page */
+  /* Video Theme Overrides for Landing Page */
+  .video-theme {
+    background-color: transparent !important;
+  }
+  
+  .video-theme section {
+    background: transparent !important;
+  }
+  
+  /* Convert all light backgrounds/cards to dark glassmorphism */
+  .video-theme .bg-white,
+  .video-theme .bg-gray-50,
+  .video-theme .bg-gray-100,
+  .video-theme .dark\:bg-gray-800,
+  .video-theme .dark\:bg-gray-900,
+  .video-theme .dark\:bg-gray-800\/50,
+  .video-theme .gradient-bg-soft,
+  .video-theme footer {
+    background: rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
 }

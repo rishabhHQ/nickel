@@ -51,6 +51,10 @@ def start_autopay():
         return jsonify({'error': 'An active autopay cycle already exists.'}), 400
         
     bank = get_or_create_bank(user.id)
+    
+    if bank.balance < 1000:
+        return jsonify({'error': 'Minimum balance of ₹1000 is required to start Autopay.'}), 400
+        
     target_amount = round(bank.balance * TARGET_PCT[level], 2)
     daily_deduction = round(target_amount / 30, 2)
     

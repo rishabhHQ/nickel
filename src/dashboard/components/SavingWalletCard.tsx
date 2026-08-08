@@ -20,6 +20,8 @@ export default function SavingWalletCard() {
     const [depositAmount, setDepositAmount] = useState('');
     const [isEditingBank, setIsEditingBank] = useState(false);
     const [editAmount, setEditAmount] = useState('');
+    const [showBalanceWarning, setShowBalanceWarning] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
 
     const fetchData = async () => {
         setLoading(true);
@@ -68,6 +70,11 @@ export default function SavingWalletCard() {
 
     const handleStart = async () => {
         setError('');
+        setShowBalanceWarning(false);
+        if (bankBalance < 1000) {
+            setShowBalanceWarning(true);
+            return;
+        }
         try {
             await api.autopay.start(selectedLevel);
             fetchData();
@@ -79,7 +86,7 @@ export default function SavingWalletCard() {
         try {
             const res = await api.autopay[action]();
             if (res && res.streak_reset) {
-                alert(res.message || "Your streak has been reset to 0.");
+                setAlertMessage(res.message || "Your streak has been reset to 0.");
             }
             fetchData();
             refreshUser();
@@ -150,6 +157,30 @@ export default function SavingWalletCard() {
 
                 {!cycle ? (
                     <div>
+                        {showBalanceWarning && (
+                            <div className="bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 p-4 rounded-r-xl mb-4 text-left">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                                    <h4 className="font-bold text-orange-800 dark:text-orange-300">Minimum Balance Required</h4>
+                                </div>
+                                <p className="text-xs text-orange-700 dark:text-orange-400 mb-3 leading-relaxed">
+                                    Your bank account balance must be at least ₹1000 before Autopay can begin.
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="bg-white/60 dark:bg-black/20 p-2 rounded-lg">
+                                        <span className="block text-gray-500 mb-0.5">Current Balance</span>
+                                        <span className="font-black text-orange-700 dark:text-orange-400">₹{bankBalance.toLocaleString()}</span>
+                                    </div>
+                                    <div className="bg-white/60 dark:bg-black/20 p-2 rounded-lg">
+                                        <span className="block text-gray-500 mb-0.5">Required Balance</span>
+                                        <span className="font-black text-gray-900 dark:text-gray-100">₹1,000</span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-orange-700 dark:text-orange-400 mt-3 font-medium italic">
+                                    Please deposit additional funds to activate Autopay.
+                                </p>
+                            </div>
+                        )}
                         <p className="text-xs text-gray-500 mb-3">Turn on Autopay to automate your savings and earn daily XP!</p>
                         <div className="grid grid-cols-3 gap-2 mb-4">
                             {LEVELS.map(l => (
@@ -197,6 +228,27 @@ export default function SavingWalletCard() {
                     </div>
                 )}
             </div>
+
+            {/* Custom Alert Modal */}
+            {alertMessage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-gray-100 dark:border-gray-800 animate-in zoom-in-95 duration-300">
+                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center mb-4 mx-auto">
+                            <AlertCircle className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-center font-bold text-lg text-gray-900 dark:text-white mb-2">Streak Reset</h3>
+                        <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                            {alertMessage}
+                        </p>
+                        <button 
+                            onClick={() => setAlertMessage('')}
+                            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-500/20"
+                        >
+                            Got it, thanks
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -7,7 +7,7 @@ from datetime import datetime, timezone, date, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from models import db, User, Saving, Quiz, QuizAttempt, xp_for_level, GlobalState, Notification
+from models import db, User, Saving, Quiz, QuizAttempt, xp_for_level, GlobalState, Notification, BankAccount, Transaction, Goal
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -442,28 +442,44 @@ def chat():
         return jsonify({'error': 'AI service is not configured'}), 503
 
     try:
-        import google.genai as genai
+        from google import genai
         from google.genai import types
 
         client = genai.Client(api_key=api_key)
+        
+        # Gather enriched context
+        bank_account = BankAccount.query.filter_by(user_id=user.id).first()
+        balance = bank_account.balance if bank_account else 0.0
+        
+        recent_txs = Transaction.query.filter_by(user_id=user.id).order_by(Transaction.created_at.desc()).limit(5).all()
+        tx_str = "\n".join([f"- {t.type}: ₹{t.amount} ({t.description})" for t in recent_txs]) if recent_txs else "No recent transactions."
+        
+        active_goals = Goal.query.filter_by(user_id=user.id, status='ACTIVE').all()
+        goals_str = "\n".join([f"- {g.name}: Target ₹{g.target_amount}, Saved ₹{g.saved_amount}, Due: {g.current_completion_date.strftime('%b %d, %Y')}" for g in active_goals]) if active_goals else "No active goals."
 
-        system_prompt = f"""You are Nickel AI, a friendly and knowledgeable personal finance advisor embedded in the Nickel FinTech app.
+        system_prompt = f"""You are Nickel AI, a highly professional, modern, and friendly personal finance advisor embedded in the Nickel FinTech app.
 
-Here is the current user's profile:
+Here is the current user's profile and financial context:
 - Name: {user.email.split('@')[0].capitalize()}
-- Level: {user.level}
-- XP: {user.xp}
-- Coins: {user.coins}
-- Total Saved: ₹{user.total_saved or 0}
+- Level: {user.level} (XP: {user.xp}, Coins: {user.coins})
 - Current Streak: {user.current_streak} days
+- Bank Balance: ₹{balance}
+- Total Saved: ₹{user.total_saved or 0}
+
+Recent Transactions (Spends/Deposits):
+{tx_str}
+
+Active Savings Goals:
+{goals_str}
 
 Your role is to give this specific user personalized, actionable financial advice based on their profile data above.
 Rules:
 1. You MUST only answer questions about personal finance (saving, budgeting, investing, spending, debt, etc.).
-2. If asked about quiz answers or anything unrelated to finance, politely decline and redirect to finance topics.
-3. Keep responses concise (2-4 sentences max), friendly, and encouraging.
-4. Reference the user's actual data (savings, streak, level) when relevant to make advice feel personal.
-5. Use Indian Rupee (₹) as the currency context."""
+2. If asked about anything unrelated to finance, politely decline and redirect to finance topics.
+3. Keep responses concise (2-4 sentences max), friendly, and extremely professional. Use markdown for styling (bolding, lists).
+4. Reference the user's actual data (balance, recent spends, active goals) when relevant to make advice feel personal and accurate.
+5. If you notice large spends compared to their balance, politely offer a warning.
+6. Use Indian Rupee (₹) as the currency context."""
 
         # Build conversation history for multi-turn
         contents = []
@@ -474,7 +490,7 @@ Rules:
         contents.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(system_instruction=system_prompt)
         )
